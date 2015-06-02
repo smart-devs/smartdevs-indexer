@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @category Smartdevs
+ * @package  Smartdevs_Indexer
+ * @author   Daniel Niedergesäß <daniel.niedergesaess@gmail.com>
+ */
+-->
+<config>
+    <modules>
+        <Smartdevs_Indexer>
+            <version>1.0.0</version>
+        </Smartdevs_Indexer>
+    </modules>
+    <global>
+        <helpers>
+            <smartdevs_indexer>
+                <class>Smartdevs_Indexer_Helper</class>
+            </smartdevs_indexer>
+        </helpers>
+        <models>
+            <smartdevs_indexer>
+                <class>Smartdevs_Indexer_Model</class>
+            </smartdevs_indexer>
+            <cataloginventory_resource>
+                <rewrite>
+                    <indexer_stock>Smartdevs_Indexer_Model_Resource_Indexer_Stock</indexer_stock>
+                </rewrite>
+            </cataloginventory_resource>
+            <!--
+            <catalog_resource>
+                <rewrite>
+                    <product_indexer_eav_source>Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source</product_indexer_eav_source>
+                </rewrite>
+            </catalog_resource>
+            -->
+        </models>
+    </global>
+</config>
