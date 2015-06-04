@@ -20,6 +20,26 @@ class Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source extends Mage_C
     private $_tmpTableCreated = false;
 
     /**
+     * exclude not visible items from select
+     *
+     * @param Varien_Db_Select $select
+     * @param string $tableAlias
+     * @return Varien_Db_Select $select
+     */
+    protected function excludeNonVisibleProducts(Varien_Db_Select $select, $tableAlias = 'i')
+    {
+        $condition = $this->_getIndexAdapter()->quoteInto('<> ?', Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE);
+        $this->_addAttributeToSelect(
+            $select,
+            'visibility',
+            $tableAlias . '.entity_id',
+            $tableAlias . '.store_id',
+            $condition
+        );
+        return $select;
+    }
+
+    /**
      * Prepare data index for indexable select attributes
      *
      * @param array $entityIds the entity ids limitation
@@ -193,27 +213,17 @@ class Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source extends Mage_C
             $select = $this->_getIndexAdapter()->select()->from($this->getIdxTable(), $sourceColumns);
 
             //add join for bypassing disabled products and avoid heavy delete query
-            $condition = $this->_getIndexAdapter()->quoteInto('=?', Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE);
-            $this->_addAttributeToSelect(
-                $select,
-                'visibility',
-                $this->getIdxTable() . '.entity_id',
-                $this->getIdxTable() . '.store_id',
-                $condition
-            );
+            $select = $this->excludeNonVisibleProducts($select, $this->getIdxTable());
 
             //disable index updates
             $this->_getWriteAdapter()->enableTableKeys($this->getNewTable());
             $this->insertFromSelect($select, $this->getNewTable(), $targetColumns, false);
 
             //sync parent child relation data @see _prepareRelationIndex
-            $write = $this->_getWriteAdapter();
-            $idxTable = $this->getIdxTable();
-
             $select = $this->_getWriteAdapter()->select()
                 ->from(array('l' => $this->getTable('catalog/product_relation')), 'parent_id')
                 ->join(array('cs' => $this->getTable('core/store')), '', array())
-                ->join(array('i' => $idxTable), 'l.child_id = i.entity_id AND cs.store_id = i.store_id', array('attribute_id', 'store_id', 'value'))
+                ->join(array('i' => $this->getIdxTable()), 'l.child_id = i.entity_id AND cs.store_id = i.store_id', array('attribute_id', 'store_id', 'value'))
                 ->group(array('l.parent_id', 'i.attribute_id', 'i.store_id', 'i.value'));
             /**
              * Add additional external limitation
@@ -227,15 +237,8 @@ class Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source extends Mage_C
             $select->order(new Zend_Db_Expr('NULL'));
 
             //add join for bypassing disabled products and avoid heavy delete query
-            $condition = $this->_getIndexAdapter()->quoteInto('=?', Mage_Catalog_Model_Product_Visibility::VISIBILITY_NOT_VISIBLE);
-            $this->_addAttributeToSelect(
-                $select,
-                'visibility',
-                'i.entity_id',
-                'i.store_id',
-                $condition
-            );
-            $query = $write->insertFromSelect($select, $this->getNewTable(), array(), Varien_Db_Adapter_Interface::INSERT_IGNORE);
+            $select = $this->excludeNonVisibleProducts($select, 'i');
+            $query = $this->_getWriteAdapter()->insertFromSelect($select, $this->getNewTable(), array(), Varien_Db_Adapter_Interface::INSERT_IGNORE);
             $this->_getWriteAdapter()->query($query);
             //enable index updates
             $this->_getWriteAdapter()->enableTableKeys($this->getNewTable());
@@ -247,7 +250,6 @@ class Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source extends Mage_C
                 )
             );
 
-
             //drop table to reclaim table space
             $this->_getIndexAdapter()->dropTable($this->getOldTable());
         } catch (Exception $e) {
@@ -255,6 +257,148 @@ class Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source extends Mage_C
             $this->_getWriteAdapter()->dropTable($this->getOldTable());
             throw $e;
         }
+        return $this;
+    }
+
+    /**
+     * Rebuild index data by entities
+     *
+     *
+     * @param int|array $processIds
+     * @return Mage_Catalog_Model_Resource_Product_Indexer_Eav_Abstract
+     * @throws Exception
+     */
+    public function reindexEntities($processIds)
+    {
+        $adapter = $this->_getWriteAdapter();
+
+        $this->clearTemporaryIndexTable();
+
+        if (!is_array($processIds)) {
+            $processIds = array($processIds);
+        }
+
+        $parentIds = $this->getRelationsByChild($processIds);
+        if ($parentIds) {
+            $processIds = array_unique(array_merge($processIds, $parentIds));
+        }
+        $childIds = $this->getRelationsByParent($processIds);
+        if ($childIds) {
+            $processIds = array_unique(array_merge($processIds, $childIds));
+        }
+
+        $this->_prepareIndex($processIds);
+
+        $adapter->beginTransaction();
+        try {
+            $this->useDisableKeys(false);
+            // remove old index
+            $where = $adapter->quoteInto('entity_id IN(?)', array_map('intval', $processIds));
+            $adapter->delete($this->getMainTable(), $where);
+
+            //get columns mapping and insert data to new table
+            $sourceColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getIdxTable()));
+            $targetColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getMainTable()));
+            $select = $this->_getIndexAdapter()->select()->from($this->getIdxTable(), $sourceColumns);
+
+            //add join for bypassing disabled products and avoid heavy delete query
+            $select = $this->excludeNonVisibleProducts($select, $this->getIdxTable());
+            $query = $this->_getWriteAdapter()->insertFromSelect($select, $this->getMainTable(), $targetColumns, Varien_Db_Adapter_Interface::INSERT_IGNORE);
+            $this->_getWriteAdapter()->query($query);
+
+            //sync parent child relation data @see _prepareRelationIndex
+            $select = $this->_getWriteAdapter()->select()
+                ->from(array('l' => $this->getTable('catalog/product_relation')), 'parent_id')
+                ->join(array('cs' => $this->getTable('core/store')), '', array())
+                ->join(array('i' => $this->getIdxTable()), 'l.child_id = i.entity_id AND cs.store_id = i.store_id', array('attribute_id', 'store_id', 'value'))
+                ->group(array('l.parent_id', 'i.attribute_id', 'i.store_id', 'i.value'));
+            /**
+             * Add additional external limitation
+             */
+            Mage::dispatchEvent('prepare_catalog_product_index_select', array(
+                'select' => $select,
+                'entity_field' => new Zend_Db_Expr('l.parent_id'),
+                'website_field' => new Zend_Db_Expr('cs.website_id'),
+                'store_field' => new Zend_Db_Expr('cs.store_id')
+            ));
+            $select->order(new Zend_Db_Expr('NULL'));
+
+            //add join for bypassing disabled products and avoid heavy delete query
+            $select = $this->excludeNonVisibleProducts($select, 'i');
+            $query = $this->_getWriteAdapter()->insertFromSelect($select, $this->getMainTable(), array(), Varien_Db_Adapter_Interface::INSERT_IGNORE);
+            $this->_getWriteAdapter()->query($query);
+
+            $this->useDisableKeys(true);
+
+            $adapter->commit();
+        } catch (Exception $e) {
+            $adapter->rollBack();
+            throw $e;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Rebuild index data by attribute id
+     * If attribute is not indexable remove data by attribute
+     *
+     *
+     * @param int $attributeId
+     * @param bool $isIndexable
+     * @return Mage_Catalog_Model_Resource_Product_Indexer_Eav_Abstract
+     */
+    public function reindexAttribute($attributeId, $isIndexable = true)
+    {
+        if (!$isIndexable) {
+            $this->_removeAttributeIndexData($attributeId);
+        } else {
+            $this->_prepareIndex(null, $attributeId);
+            $this->_getWriteAdapter()->beginTransaction();
+            try {
+                // remove index by attribute
+                $where = $this->_getWriteAdapter()->quoteInto('attribute_id = ?', $attributeId);
+                $this->_getWriteAdapter()->delete($this->getMainTable(), $where);
+
+                //get columns mapping and insert data to new table
+                $sourceColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getIdxTable()));
+                $targetColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getMainTable()));
+                $select = $this->_getIndexAdapter()->select()->from($this->getIdxTable(), $sourceColumns);
+
+                //add join for bypassing disabled products and avoid heavy delete query
+                $select = $this->excludeNonVisibleProducts($select, $this->getIdxTable());
+                $query = $this->_getWriteAdapter()->insertFromSelect($select, $this->getMainTable(), $targetColumns, Varien_Db_Adapter_Interface::INSERT_IGNORE);
+                $this->_getWriteAdapter()->query($query);
+
+                //sync parent child relation data @see _prepareRelationIndex
+                $select = $this->_getWriteAdapter()->select()
+                    ->from(array('l' => $this->getTable('catalog/product_relation')), 'parent_id')
+                    ->join(array('cs' => $this->getTable('core/store')), '', array())
+                    ->join(array('i' => $this->getIdxTable()), 'l.child_id = i.entity_id AND cs.store_id = i.store_id', array('attribute_id', 'store_id', 'value'))
+                    ->group(array('l.parent_id', 'i.attribute_id', 'i.store_id', 'i.value'));
+                /**
+                 * Add additional external limitation
+                 */
+                Mage::dispatchEvent('prepare_catalog_product_index_select', array(
+                    'select' => $select,
+                    'entity_field' => new Zend_Db_Expr('l.parent_id'),
+                    'website_field' => new Zend_Db_Expr('cs.website_id'),
+                    'store_field' => new Zend_Db_Expr('cs.store_id')
+                ));
+                $select->order(new Zend_Db_Expr('NULL'));
+
+                //add join for bypassing disabled products and avoid heavy delete query
+                $select = $this->excludeNonVisibleProducts($select, 'i');
+                $query = $this->_getWriteAdapter()->insertFromSelect($select, $this->getMainTable(), array(), Varien_Db_Adapter_Interface::INSERT_IGNORE);
+                $this->_getWriteAdapter()->query($query);
+
+                $this->_getWriteAdapter()->commit();
+            } catch (Exception $e) {
+                $this->_getWriteAdapter()->rollback();
+                throw $e;
+            }
+        }
+
         return $this;
     }
 
