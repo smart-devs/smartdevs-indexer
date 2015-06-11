@@ -22,11 +22,6 @@
             <smartdevs_indexer>
                 <class>Smartdevs_Indexer_Model</class>
             </smartdevs_indexer>
-            <cataloginventory_resource>
-                <rewrite>
-                    <indexer_stock>Smartdevs_Indexer_Model_Resource_Indexer_Stock</indexer_stock>
-                </rewrite>
-            </cataloginventory_resource>
             <catalog_resource>
                 <rewrite>
                     <product_indexer_eav_source>Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source</product_indexer_eav_source>
