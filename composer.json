@@ -1,0 +1,21 @@
+{
+   "name": "smart-devs/smartdevs-indexer",
+    "license": "GPL-3.0",
+    "type": "magento-module",
+    "version": "0.0.1",
+    "description":"Optimations for Magento catalog_product_index_eav performance",
+    "authors":[
+        {
+            "name":"Daniel Niedergesäß",
+            "email":"daniel.niedergesaess@gmail.com"
+        }
+    ],
+    "extra": {
+        "map": [
+            ["src/app/etc/modules/Smartdevs_Indexer.xml", "app/etc/modules/Smartdevs_Indexer.xml"],
+            ["src/app/code/community/Smartdevs/Indexer", "app/code/community/Smartdevs/Indexer"],
+            ["src/app/code/local/Varien/Db/Adapter/Pdo/Mysql.php", " app/code/local/Varien/Db/Adapter/Pdo/Mysql.php"]
+        ]
+    }
+}
+
