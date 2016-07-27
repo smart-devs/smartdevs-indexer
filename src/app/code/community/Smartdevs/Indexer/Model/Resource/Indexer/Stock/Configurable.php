@@ -107,7 +107,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Configurable
         ));
 
         if (!is_null($entityIds)) {
-            $select->where('e.entity_id IN(?)', $entityIds);
+            $select->where('e.entity_id IN(?)', array_map('intval', $entityIds));
         }
 
         return $select;
