@@ -59,7 +59,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Grouped
         $adapter  = $this->_getWriteAdapter();
         $idxTable = $usePrimaryTable ? $this->getMainTable() : $this->getIdxTable();
         $select   = $adapter->select()
-            ->from(array('e' => $this->getTable('catalog/product')), array('entity_id'));
+            ->from(array('e' => $this->getTable('catalog/product')), array('product_id' => 'entity_id'));
         $this->_addWebsiteJoinToSelect($select, true);
         $this->_addProductWebsiteJoinToSelect($select, 'cw.website_id', 'e.entity_id');
         $select->columns('cw.website_id')
@@ -104,7 +104,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Grouped
         $stockStatusExpr = $adapter->getLeastSql(array("MAX({$optExpr})", "MIN({$statusExpr})"));
 
         $select->columns(array(
-            'status' => $stockStatusExpr
+            'stock_status' => $stockStatusExpr
         ));
 
         if (!is_null($entityIds)) {
