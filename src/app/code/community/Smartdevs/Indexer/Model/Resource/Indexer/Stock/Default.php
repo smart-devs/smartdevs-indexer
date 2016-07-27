@@ -48,7 +48,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default
         $adapter = $this->_getWriteAdapter();
         $qtyExpr = $adapter->getCheckSql('cisi.qty > 0', 'cisi.qty', 0);
         $select  = $adapter->select()
-            ->from(array('e' => $this->getTable('catalog/product')), array('entity_id'));
+            ->from(array('e' => $this->getTable('catalog/product')), array('product_id' => 'entity_id'));
         $this->_addWebsiteJoinToSelect($select, true);
         $this->_addProductWebsiteJoinToSelect($select, 'cw.website_id', 'e.entity_id');
         $select->columns('cw.website_id')
@@ -79,7 +79,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default
         $optExpr = $adapter->getCheckSql($psCondition, 1, 0);
         $stockStatusExpr = $adapter->getLeastSql(array($optExpr, $statusExpr));
 
-        $select->columns(array('status' => $stockStatusExpr));
+        $select->columns(array('stock_status' => $stockStatusExpr));
 
         if (!is_null($entityIds)) {
             $select->where('e.entity_id IN(?)', $entityIds);
@@ -98,26 +98,14 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default
     {
         $adapter = $this->_getWriteAdapter();
         $select  = $this->_getStockStatusSelect($entityIds, true);
-        $query   = $adapter->query($select);
-
-        $i      = 0;
-        $data   = array();
-        while ($row = $query->fetch(PDO::FETCH_ASSOC)) {
-            $i ++;
-            $data[] = array(
-                'product_id'    => (int)$row['entity_id'],
-                'website_id'    => (int)$row['website_id'],
-                'stock_id'      => (int)$row['stock_id'],
-                'qty'           => (float)$row['qty'],
-                'stock_status'  => (int)$row['status'],
-            );
-            if (($i % 1000) == 0) {
-                $this->_updateIndexTable($data);
-                $data = array();
-            }
-        }
-        $this->_updateIndexTable($data);
-
+        $adapter->query($select
+            ->insertFromSelect($this->getMainTable(), array(
+                'product_id',
+                'website_id',
+                'stock_id',
+                'qty',
+                'stock_status',
+            )));
         return $this;
     }
 }
