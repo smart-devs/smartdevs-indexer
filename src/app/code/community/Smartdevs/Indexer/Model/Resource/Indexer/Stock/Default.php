@@ -61,7 +61,6 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default
                 'cisi.stock_id = cis.stock_id AND cisi.product_id = e.entity_id',
                 array())
             ->columns(array('qty' => $qtyExpr))
-            ->where('cw.website_id != 0')
             ->where('e.type_id = ?', $this->getTypeId());
 
         // add limitation of status
@@ -84,7 +83,7 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default
         if (!is_null($entityIds)) {
             $select->where('e.entity_id IN(?)', array_map('intval', $entityIds));
         }
-
+        $select->order(new Zend_Db_Expr('NULL'));
         return $select;
     }
 
