@@ -114,33 +114,29 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock extends Mage_CatalogInvento
     public function reindexProducts($productIds)
     {
         $adapter = $this->_getWriteAdapter();
-        if (!is_array($productIds)) {
+        if (false === is_array($productIds)) {
             $productIds = array($productIds);
         }
         $parentIds = $this->getRelationsByChild($productIds);
         if ($parentIds) {
-            $processIds = array_map('intval',array_merge($parentIds, $productIds));
+            $processIds = array_merge($parentIds, $productIds);
         } else {
-            $processIds = array_map('intval', $productIds);
+            $processIds = $productIds;
         }
 
-        // retrieve product types by processIds
-        $select = $adapter->select()
-            ->from($this->getTable('catalog/product'), array('entity_id', 'type_id'))
+        // retrieve product types we need to reindex
+        $select = $adapter->select()->distinct(true)
+            ->from($this->getTable('catalog/product'), array('type_id'))
             ->where('entity_id IN(?)', $processIds);
-        $pairs  = $adapter->fetchPairs($select);
-
-        $byType = array();
-        foreach ($pairs as $productId => $typeId) {
-            $byType[$typeId][$productId] = $productId;
-        }
+        $entityTypes  = $adapter->fetchAssoc($select);
 
         $adapter->beginTransaction();
         try {
-            $indexers = $this->_getTypeIndexers();
-            foreach ($indexers as $indexer) {
-                if (isset($byType[$indexer->getTypeId()])) {
-                    $indexer->reindexEntity($byType[$indexer->getTypeId()]);
+            foreach ($this->_getTypeIndexers() as $indexer) {
+                //check we need to index the type
+                if (true === array_key_exists($indexer->getTypeId(), $entityTypes)){
+                    //we need array map here to ensure we don't mix data types
+                    $indexer->reindexEntity(array_map('intval', $processIds));
                 }
             }
         } catch (Exception $e) {
