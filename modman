@@ -1,3 +1,2 @@
 src/app/etc/modules/Smartdevs_Indexer.xml               app/etc/modules/Smartdevs_Indexer.xml
 src/app/code/community/Smartdevs/Indexer                app/code/community/Smartdevs/Indexer
-src/app/code/local/Varien/Db/Adapter/Pdo/Mysql.php  app/code/local/Varien/Db/Adapter/Pdo/Mysql.php
