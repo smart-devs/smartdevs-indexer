@@ -52,6 +52,24 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock extends Mage_CatalogInvento
     }
 
     /**
+     * create a new stock table
+     */
+    protected function _createNewTable(){
+        $table = $this->_getWriteAdapter()->createTableByDdl($this->getMainTable(), $this->getNewTable());
+
+        //foreign keys should be unique so we need to change the names of the table
+        $rpForeignKeys = new ReflectionProperty($table, '_foreignKeys');
+        $rpForeignKeys->setAccessible(true);
+        $fkTmp = array();
+        foreach ($table->getForeignKeys() as $foreignKeyData) {
+            $uuid = $this->getIndexerHelper()->getUUID();
+            $foreignKeyData['FK_NAME'] = $uuid;
+            $fkTmp[$uuid] = $foreignKeyData;
+        }
+        $rpForeignKeys->setValue($table, $fkTmp);
+        $this->_getWriteAdapter()->createTable($table);
+    }
+    /**
      * Synchronize data between index storage and original storage
      *
      * we use here a table rotation instead of deleting the whole table inside an transaction
@@ -66,20 +84,8 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock extends Mage_CatalogInvento
         $this->_getWriteAdapter()->dropTable($this->getOldTable());
 
         try {
-            $table = $this->_getWriteAdapter()->createTableByDdl($this->getMainTable(), $this->getNewTable());
-
-            //foreign keys should be unique so we need to change the names of the table
-            $rpForeignKeys = new ReflectionProperty($table, '_foreignKeys');
-            $rpForeignKeys->setAccessible(true);
-            $fkTmp = array();
-            foreach ($table->getForeignKeys() as $foreignKeyData) {
-                $uuid = $this->getIndexerHelper()->getUUID();
-                $foreignKeyData['FK_NAME'] = $uuid;
-                $fkTmp[$uuid] = $foreignKeyData;
-            }
-            $rpForeignKeys->setValue($table, $fkTmp);
-            $this->_getWriteAdapter()->createTable($table);
-
+            //create new table
+            $this->_createNewTable();
             //get columns mapping and insert data to new table
             $sourceColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getIdxTable()));
             $targetColumns = array_keys($this->_getWriteAdapter()->describeTable($this->getNewTable()));
