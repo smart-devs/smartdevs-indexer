@@ -27,6 +27,14 @@
                     <product_indexer_eav_source>Smartdevs_Indexer_Model_Resource_Product_Indexer_Eav_Source</product_indexer_eav_source>
                 </rewrite>
             </catalog_resource>
+            <cataloginventory_resource>
+                <rewrite>
+                    <indexer_stock>Smartdevs_Indexer_Model_Resource_Indexer_Stock</indexer_stock>
+                    <indexer_stock_default>Smartdevs_Indexer_Model_Resource_Indexer_Stock_Default</indexer_stock_default>
+                    <indexer_stock_configurable>Smartdevs_Indexer_Model_Resource_Indexer_Stock_Configurable</indexer_stock_configurable>
+                    <indexer_stock_grouped>Smartdevs_Indexer_Model_Resource_Indexer_Stock_Grouped</indexer_stock_grouped>
+                </rewrite>
+            </cataloginventory_resource>
         </models>
     </global>
 </config>
