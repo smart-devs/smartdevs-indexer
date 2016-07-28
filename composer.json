@@ -3,7 +3,7 @@
     "license": "GPL-3.0",
     "type": "magento-module",
     "version": "1.0.0",
-    "description":"Optimations for Magento catalog_product_index_eav performance",
+    "description":"Optimations for Magento1 indexer performance",
     "authors":[
         {
             "name":"Daniel Niedergesäß",
