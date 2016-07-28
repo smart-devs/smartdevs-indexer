@@ -115,7 +115,6 @@ class Smartdevs_Indexer_Model_Resource_Indexer_Stock extends Mage_CatalogInvento
      *
      * @param array $productIds
      * @return Mage_CatalogInventory_Model_Resource_Indexer_Stock
-     * @todo refactor to ge rid of sql query
      */
     public function reindexProducts($productIds)
     {
