@@ -2,7 +2,7 @@
    "name": "smart-devs/smartdevs-indexer",
     "license": "WTFPL",
     "type": "magento-module",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "description":"Optimations for Magento 1 indexer",
     "authors":[
         {
